@@ -1,0 +1,260 @@
+# Tabler API
+
+Uma API REST em Go usando Gin e PostgreSQL (Neon) com arquitetura limpa.
+
+## Estrutura do Projeto
+
+```
+tabler-api/
+├── cmd/api/main.go              # Entry point da aplicação
+├── config/                      # Configurações e variáveis de ambiente
+├── internal/
+│   ├── handler/                 # Handlers HTTP
+│   ├── service/                 # Regras de negócio
+│   ├── repository/              # Operações com banco de dados
+│   ├── model/                   # Structs de entidades e DTOs
+│   └── router/                  # Definição das rotas
+├── pkg/db/                      # Conexão com banco de dados
+├── migrations/                  # Scripts SQL
+└── README.md
+```
+
+## Pré-requisitos
+
+- Go 1.21+
+- PostgreSQL (Neon ou local)
+- Git
+
+## Configuração Rápida
+
+1. **Clone o repositório**:
+```bash
+git clone <repository-url>
+cd tabler-api
+```
+
+2. **Configure o ambiente automaticamente**:
+```bash
+./setup-env.sh
+```
+
+3. **Instale as dependências**:
+```bash
+go mod tidy
+```
+
+4. **Execute a migração no Neon**:
+   - Acesse o [console do Neon](https://console.neon.tech)
+   - Vá para o seu projeto
+   - Execute o script SQL em `migrations/001_create_users_table.sql`
+
+5. **Execute a aplicação**:
+```bash
+make run
+# ou
+go run cmd/api/main.go
+```
+
+## Configuração Manual
+
+Se preferir configurar manualmente:
+
+1. **Configure as variáveis de ambiente**:
+```bash
+cp env.example .env
+```
+
+2. **Edite o arquivo `.env`** com suas configurações:
+```env
+# Opção 1: Use DATABASE_URL (recomendado para Neon)
+DATABASE_URL='postgresql://username:password@host:port/database?sslmode=require&channel_binding=require'
+
+# Opção 2: Use variáveis individuais
+DB_HOST=your-neon-host.neon.tech
+DB_PORT=5432
+DB_USER=your-username
+DB_PASSWORD=your-password
+DB_NAME=your-database-name
+DB_SSL_MODE=require
+
+# Configurações do Servidor
+SERVER_PORT=8080
+SERVER_HOST=localhost
+ENV=development
+```
+
+## Executando a Aplicação
+
+```bash
+go run cmd/api/main.go
+```
+
+A API estará disponível em `http://localhost:8080`
+
+## Endpoints da API
+
+### Health Check
+- `GET /health` - Verifica se o servidor está funcionando
+
+### Usuários
+
+#### Criar usuário
+```bash
+POST /api/v1/users
+Content-Type: application/json
+
+{
+  "name": "João Silva",
+  "email": "joao@example.com"
+}
+```
+
+#### Listar todos os usuários
+```bash
+GET /api/v1/users
+```
+
+#### Buscar usuário por ID
+```bash
+GET /api/v1/users/{id}
+```
+
+#### Atualizar usuário
+```bash
+PUT /api/v1/users/{id}
+Content-Type: application/json
+
+{
+  "name": "João Silva Atualizado",
+  "email": "joao.novo@example.com"
+}
+```
+
+#### Deletar usuário
+```bash
+DELETE /api/v1/users/{id}
+```
+
+## Exemplos de Uso
+
+### Criar um usuário
+```bash
+curl -X POST http://localhost:8080/api/v1/users \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Maria Santos",
+    "email": "maria@example.com"
+  }'
+```
+
+### Listar usuários
+```bash
+curl http://localhost:8080/api/v1/users
+```
+
+### Buscar usuário específico
+```bash
+curl http://localhost:8080/api/v1/users/{user-id}
+```
+
+## Configuração do Neon
+
+### 1. Criar Projeto no Neon
+- Acesse [console.neon.tech](https://console.neon.tech)
+- Crie um novo projeto
+- Anote as credenciais de conexão
+
+### 2. Executar Migração
+No console SQL do Neon, execute:
+```sql
+-- Create users table
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index on email for faster lookups
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- Create index on created_at for sorting
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC);
+```
+
+### 3. Configurar Variáveis de Ambiente
+Use a URL de conexão fornecida pelo Neon:
+```env
+DATABASE_URL='postgresql://username:password@host:port/database?sslmode=require&channel_binding=require'
+```
+
+## Arquitetura
+
+O projeto segue os princípios da Clean Architecture:
+
+- **Handlers**: Responsáveis por receber requisições HTTP e retornar respostas
+- **Services**: Contêm a lógica de negócio
+- **Repositories**: Responsáveis pelas operações com banco de dados
+- **Models**: Definem as estruturas de dados e DTOs
+
+## Tecnologias Utilizadas
+
+- **Gin**: Framework web para Go
+- **pgx**: Driver PostgreSQL para Go
+- **UUID**: Geração de IDs únicos
+- **godotenv**: Carregamento de variáveis de ambiente
+- **Neon**: PostgreSQL como serviço
+
+## Comandos Úteis
+
+```bash
+make run        # Executar a aplicação
+make build      # Compilar a aplicação
+make test       # Executar testes
+make deps       # Instalar dependências
+make help       # Ver todos os comandos
+```
+
+## Desenvolvimento
+
+Para executar em modo de desenvolvimento:
+
+```bash
+ENV=development go run cmd/api/main.go
+```
+
+## Build
+
+Para criar um executável:
+
+```bash
+go build -o bin/api cmd/api/main.go
+```
+
+## Testes
+
+Para executar os testes:
+
+```bash
+go test ./...
+```
+
+## Troubleshooting
+
+### Erro de Conexão com o Banco
+- Verifique se a `DATABASE_URL` está correta
+- Confirme se o banco Neon está ativo
+- Verifique se a migração foi executada
+
+### Erro de Compilação
+```bash
+go mod tidy
+go build cmd/api/main.go
+```
+
+### Logs de Debug
+Para ver logs detalhados, execute:
+```bash
+ENV=development go run cmd/api/main.go
+``` 
