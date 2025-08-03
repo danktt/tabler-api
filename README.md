@@ -1,6 +1,6 @@
 # Tabler API
 
-Uma API REST em Go usando Gin e PostgreSQL (Neon) com arquitetura limpa.
+Uma API REST em Go usando Gin e Neon PostgreSQL com arquitetura limpa.
 
 ## Estrutura do Projeto
 
@@ -22,7 +22,7 @@ tabler-api/
 ## Pré-requisitos
 
 - Go 1.21+
-- PostgreSQL (Neon ou local)
+- Conta no Neon PostgreSQL
 - Git
 
 ## Configuração Rápida
@@ -33,9 +33,10 @@ git clone <repository-url>
 cd tabler-api
 ```
 
-2. **Configure o ambiente automaticamente**:
+2. **Configure o ambiente**:
 ```bash
-./setup-env.sh
+cp env.example .env
+# Edite o .env com sua DATABASE_URL do Neon
 ```
 
 3. **Instale as dependências**:
@@ -55,32 +56,38 @@ make run
 go run cmd/api/main.go
 ```
 
-## Configuração Manual
+## Configuração do Neon
 
-Se preferir configurar manualmente:
+### 1. Obter DATABASE_URL
+1. Acesse [console.neon.tech](https://console.neon.tech)
+2. Crie um novo projeto ou use um existente
+3. Copie a URL de conexão fornecida
 
-1. **Configure as variáveis de ambiente**:
-```bash
-cp env.example .env
-```
-
-2. **Edite o arquivo `.env`** com suas configurações:
+### 2. Configurar .env
 ```env
-# Opção 1: Use DATABASE_URL (recomendado para Neon)
 DATABASE_URL='postgresql://username:password@host:port/database?sslmode=require&channel_binding=require'
-
-# Opção 2: Use variáveis individuais
-DB_HOST=your-neon-host.neon.tech
-DB_PORT=5432
-DB_USER=your-username
-DB_PASSWORD=your-password
-DB_NAME=your-database-name
-DB_SSL_MODE=require
-
-# Configurações do Servidor
 SERVER_PORT=8080
 SERVER_HOST=localhost
 ENV=development
+```
+
+### 3. Executar Migração
+No console SQL do Neon, execute:
+```sql
+-- Create users table
+CREATE TABLE IF NOT EXISTS users (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    name VARCHAR(255) NOT NULL,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create index on email for faster lookups
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+-- Create index on created_at for sorting
+CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC);
 ```
 
 ## Executando a Aplicação
@@ -157,38 +164,6 @@ curl http://localhost:8080/api/v1/users
 curl http://localhost:8080/api/v1/users/{user-id}
 ```
 
-## Configuração do Neon
-
-### 1. Criar Projeto no Neon
-- Acesse [console.neon.tech](https://console.neon.tech)
-- Crie um novo projeto
-- Anote as credenciais de conexão
-
-### 2. Executar Migração
-No console SQL do Neon, execute:
-```sql
--- Create users table
-CREATE TABLE IF NOT EXISTS users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    name VARCHAR(255) NOT NULL,
-    email VARCHAR(255) UNIQUE NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
-);
-
--- Create index on email for faster lookups
-CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
-
--- Create index on created_at for sorting
-CREATE INDEX IF NOT EXISTS idx_users_created_at ON users(created_at DESC);
-```
-
-### 3. Configurar Variáveis de Ambiente
-Use a URL de conexão fornecida pelo Neon:
-```env
-DATABASE_URL='postgresql://username:password@host:port/database?sslmode=require&channel_binding=require'
-```
-
 ## Arquitetura
 
 O projeto segue os princípios da Clean Architecture:
@@ -242,10 +217,18 @@ go test ./...
 
 ## Troubleshooting
 
-### Erro de Conexão com o Banco
+### Erro: "DATABASE_URL is required"
+- Verifique se o arquivo `.env` existe
+- Confirme se a `DATABASE_URL` está configurada corretamente
+
+### Erro de Conexão com o Neon
 - Verifique se a `DATABASE_URL` está correta
 - Confirme se o banco Neon está ativo
 - Verifique se a migração foi executada
+
+### Erro: "relation 'users' does not exist"
+- Execute a migração no console do Neon
+- Verifique se está no banco correto
 
 ### Erro de Compilação
 ```bash

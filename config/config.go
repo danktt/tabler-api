@@ -15,13 +15,7 @@ type Config struct {
 }
 
 type DatabaseConfig struct {
-	Host     string
-	Port     int
-	User     string
-	Password string
-	Name     string
-	SSLMode  string
-	URL      string // Para suportar DATABASE_URL do Neon
+	URL string // DATABASE_URL do Neon
 }
 
 type ServerConfig struct {
@@ -40,20 +34,9 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
 
-	dbPort, err := strconv.Atoi(getEnv("DB_PORT", "5432"))
-	if err != nil {
-		return nil, fmt.Errorf("invalid DB_PORT: %w", err)
-	}
-
 	config := &Config{
 		Database: DatabaseConfig{
-			Host:     getEnv("DB_HOST", "localhost"),
-			Port:     dbPort,
-			User:     getEnv("DB_USER", "postgres"),
-			Password: getEnv("DB_PASSWORD", ""),
-			Name:     getEnv("DB_NAME", "tabler_api"),
-			SSLMode:  getEnv("DB_SSL_MODE", "require"),
-			URL:      getEnv("DATABASE_URL", ""),
+			URL: getEnv("DATABASE_URL", ""),
 		},
 		Server: ServerConfig{
 			Port: port,
@@ -62,24 +45,16 @@ func Load() (*Config, error) {
 		Env: getEnv("ENV", "development"),
 	}
 
+	// Validate that DATABASE_URL is provided
+	if config.Database.URL == "" {
+		return nil, fmt.Errorf("DATABASE_URL is required. Please configure your Neon database URL")
+	}
+
 	return config, nil
 }
 
 func (c *Config) GetDatabaseURL() string {
-	// Se DATABASE_URL estiver definida, use ela diretamente
-	if c.Database.URL != "" {
-		return c.Database.URL
-	}
-
-	// Caso contrário, construa a URL a partir das variáveis individuais
-	return fmt.Sprintf("postgresql://%s:%s@%s:%d/%s?sslmode=%s",
-		c.Database.User,
-		c.Database.Password,
-		c.Database.Host,
-		c.Database.Port,
-		c.Database.Name,
-		c.Database.SSLMode,
-	)
+	return c.Database.URL
 }
 
 func getEnv(key, defaultValue string) string {
