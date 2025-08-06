@@ -42,7 +42,7 @@ func main() {
 	userHandler := handler.NewUserHandler(userService)
 
 	// Setup router
-	router := router.SetupRouter(userHandler)
+	router := router.SetupRouter(userHandler, cfg)
 
 	// Create HTTP server
 	serverAddr := fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port)

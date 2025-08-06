@@ -11,6 +11,7 @@ import (
 type Config struct {
 	Database DatabaseConfig
 	Server   ServerConfig
+	Auth0    Auth0Config
 	Env      string
 }
 
@@ -21,6 +22,13 @@ type DatabaseConfig struct {
 type ServerConfig struct {
 	Port int
 	Host string
+}
+
+type Auth0Config struct {
+	Domain        string
+	Audience      string
+	Issuer        string
+	JWKSEndpoint  string
 }
 
 func Load() (*Config, error) {
@@ -34,6 +42,11 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
 
+	auth0Domain := getEnv("AUTH0_DOMAIN", "")
+	if auth0Domain == "" {
+		return nil, fmt.Errorf("AUTH0_DOMAIN is required")
+	}
+
 	config := &Config{
 		Database: DatabaseConfig{
 			URL: getEnv("DATABASE_URL", ""),
@@ -41,6 +54,12 @@ func Load() (*Config, error) {
 		Server: ServerConfig{
 			Port: port,
 			Host: getEnv("SERVER_HOST", "localhost"),
+		},
+		Auth0: Auth0Config{
+			Domain:       auth0Domain,
+			Audience:     getEnv("AUTH0_AUDIENCE", ""),
+			Issuer:       fmt.Sprintf("https://%s/", auth0Domain),
+			JWKSEndpoint: fmt.Sprintf("https://%s/.well-known/jwks.json", auth0Domain),
 		},
 		Env: getEnv("ENV", "development"),
 	}

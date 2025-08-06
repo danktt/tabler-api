@@ -98,12 +98,29 @@ go run cmd/api/main.go
 
 A API estará disponível em `http://localhost:8080`
 
+## Autenticação
+
+Este projeto implementa autenticação JWT usando Auth0. Para mais detalhes, consulte o arquivo [AUTHENTICATION.md](AUTHENTICATION.md).
+
+### Configuração Rápida do Auth0
+
+1. Configure as variáveis de ambiente no `.env`:
+```env
+AUTH0_DOMAIN=your-tenant.auth0.com
+AUTH0_AUDIENCE=your-api-identifier
+```
+
+2. Teste a autenticação:
+```bash
+./scripts/test_auth.sh
+```
+
 ## Endpoints da API
 
 ### Health Check
 - `GET /health` - Verifica se o servidor está funcionando
 
-### Usuários
+### Rotas Públicas (Usuários)
 
 #### Criar usuário
 ```bash
@@ -140,6 +157,33 @@ Content-Type: application/json
 #### Deletar usuário
 ```bash
 DELETE /api/v1/users/{id}
+```
+
+### Rotas Protegidas (Requerem Autenticação)
+
+#### Obter perfil do usuário autenticado
+```bash
+GET /api/v1/profile
+Authorization: Bearer YOUR_JWT_TOKEN
+```
+
+**Resposta:**
+```json
+{
+  "message": "Profile retrieved successfully",
+  "data": {
+    "sub": "auth0|1234567890",
+    "email": "user@example.com",
+    "name": "John Doe",
+    "nickname": "johndoe",
+    "picture": "https://example.com/picture.jpg",
+    "updated_at": "2023-01-01T00:00:00.000Z",
+    "issuer": "https://your-tenant.auth0.com/",
+    "audience": "your-api-identifier",
+    "expires_at": 1634571490,
+    "issued_at": 1634567890
+  }
+}
 ```
 
 ## Exemplos de Uso
@@ -180,6 +224,8 @@ O projeto segue os princípios da Clean Architecture:
 - **UUID**: Geração de IDs únicos
 - **godotenv**: Carregamento de variáveis de ambiente
 - **Neon**: PostgreSQL como serviço
+- **Auth0**: Provedor de identidade e autenticação JWT
+- **lestrrat-go/jwx**: Biblioteca para validação de tokens JWT e JWK
 
 ## Comandos Úteis
 
