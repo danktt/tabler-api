@@ -7,7 +7,6 @@ import (
 	"tabler-api/internal/service"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 )
 
 type UserHandler struct {
@@ -46,9 +45,8 @@ func (h *UserHandler) CreateUser(c *gin.Context) {
 
 // GetUser handles GET /users/:id
 func (h *UserHandler) GetUser(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
+	id := c.Param("id")
+	if id == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid user ID",
 		})
@@ -91,9 +89,8 @@ func (h *UserHandler) GetAllUsers(c *gin.Context) {
 
 // UpdateUser handles PUT /users/:id
 func (h *UserHandler) UpdateUser(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
+	id := c.Param("id")
+	if id == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid user ID",
 		})
@@ -130,16 +127,15 @@ func (h *UserHandler) UpdateUser(c *gin.Context) {
 
 // DeleteUser handles DELETE /users/:id
 func (h *UserHandler) DeleteUser(c *gin.Context) {
-	idStr := c.Param("id")
-	id, err := uuid.Parse(idStr)
-	if err != nil {
+	id := c.Param("id")
+	if id == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"error": "Invalid user ID",
 		})
 		return
 	}
 
-	err = h.userService.DeleteUser(c.Request.Context(), id)
+	err := h.userService.DeleteUser(c.Request.Context(), id)
 	if err != nil {
 		if err.Error() == "user not found" {
 			c.JSON(http.StatusNotFound, gin.H{

@@ -32,16 +32,17 @@ func (h *ProfileHandler) GetProfile(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Profile retrieved successfully",
 		"data": gin.H{
-			"sub":        user.Sub,
-			"email":      user.Email,
-			"name":       user.Name,
-			"nickname":   user.Nickname,
-			"picture":    user.Picture,
-			"updated_at": user.UpdatedAt,
-			"issuer":     user.Iss,
-			"audience":   user.Aud,
-			"expires_at": user.Exp,
-			"issued_at":  user.Iat,
+			"sub":            user.Sub,
+			"email":          user.Email,
+			"name":           user.Name,
+			"emailVerified":  user.EmailVerified,
+			"image":          user.Image,
+			"createdAt":      user.CreatedAt,
+			"updatedAt":      user.UpdatedAt,
+			"issuer":         user.Iss,
+			"audience":       user.Aud,
+			"expires_at":     user.Exp,
+			"issued_at":      user.Iat,
 		},
 	})
 } 

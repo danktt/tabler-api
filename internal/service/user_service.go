@@ -6,8 +6,6 @@ import (
 
 	"tabler-api/internal/model"
 	"tabler-api/internal/repository"
-
-	"github.com/google/uuid"
 )
 
 type UserService struct {
@@ -41,7 +39,7 @@ func (s *UserService) CreateUser(ctx context.Context, req *model.CreateUserReque
 	return &response, nil
 }
 
-func (s *UserService) GetUserByID(ctx context.Context, id uuid.UUID) (*model.UserResponse, error) {
+func (s *UserService) GetUserByID(ctx context.Context, id string) (*model.UserResponse, error) {
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get user: %w", err)
@@ -66,7 +64,7 @@ func (s *UserService) GetAllUsers(ctx context.Context) ([]*model.UserResponse, e
 	return responses, nil
 }
 
-func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, req *model.UpdateUserRequest) (*model.UserResponse, error) {
+func (s *UserService) UpdateUser(ctx context.Context, id string, req *model.UpdateUserRequest) (*model.UserResponse, error) {
 	// Check if user exists
 	user, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {
@@ -93,7 +91,7 @@ func (s *UserService) UpdateUser(ctx context.Context, id uuid.UUID, req *model.U
 	return &response, nil
 }
 
-func (s *UserService) DeleteUser(ctx context.Context, id uuid.UUID) error {
+func (s *UserService) DeleteUser(ctx context.Context, id string) error {
 	// Check if user exists
 	_, err := s.userRepo.GetByID(ctx, id)
 	if err != nil {

@@ -8,7 +8,6 @@ import (
 	"tabler-api/internal/model"
 	"tabler-api/pkg/db"
 
-	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -22,12 +21,11 @@ func NewUserRepository(db *db.PostgresDB) *UserRepository {
 
 func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 	query := `
-		INSERT INTO users (id, name, email, created_at, updated_at)
+		INSERT INTO "user" (id, name, email, created_at, updated_at)
 		VALUES ($1, $2, $3, $4, $5)
 	`
 
 	now := time.Now()
-	user.ID = uuid.New()
 	user.CreatedAt = now
 	user.UpdatedAt = now
 
@@ -46,10 +44,10 @@ func (r *UserRepository) Create(ctx context.Context, user *model.User) error {
 	return nil
 }
 
-func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User, error) {
+func (r *UserRepository) GetByID(ctx context.Context, id string) (*model.User, error) {
 	query := `
 		SELECT id, name, email, created_at, updated_at
-		FROM users
+		FROM "user"
 		WHERE id = $1
 	`
 
@@ -75,7 +73,7 @@ func (r *UserRepository) GetByID(ctx context.Context, id uuid.UUID) (*model.User
 func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.User, error) {
 	query := `
 		SELECT id, name, email, created_at, updated_at
-		FROM users
+		FROM "user"
 		WHERE email = $1
 	`
 
@@ -101,7 +99,7 @@ func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*model.U
 func (r *UserRepository) GetAll(ctx context.Context) ([]*model.User, error) {
 	query := `
 		SELECT id, name, email, created_at, updated_at
-		FROM users
+		FROM "user"
 		ORDER BY created_at DESC
 	`
 
@@ -136,7 +134,7 @@ func (r *UserRepository) GetAll(ctx context.Context) ([]*model.User, error) {
 
 func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	query := `
-		UPDATE users
+		UPDATE "user"
 		SET name = $1, email = $2, updated_at = $3
 		WHERE id = $4
 	`
@@ -161,9 +159,9 @@ func (r *UserRepository) Update(ctx context.Context, user *model.User) error {
 	return nil
 }
 
-func (r *UserRepository) Delete(ctx context.Context, id uuid.UUID) error {
+func (r *UserRepository) Delete(ctx context.Context, id string) error {
 	query := `
-		DELETE FROM users
+		DELETE FROM "user"
 		WHERE id = $1
 	`
 

@@ -4,15 +4,17 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/joho/godotenv"
 )
 
 type Config struct {
-	Database DatabaseConfig
-	Server   ServerConfig
-	Auth0    Auth0Config
-	Env      string
+	Database   DatabaseConfig
+	Server     ServerConfig
+	BetterAuth BetterAuthConfig
+	CORS       CORSConfig
+	Env        string
 }
 
 type DatabaseConfig struct {
@@ -24,11 +26,17 @@ type ServerConfig struct {
 	Host string
 }
 
-type Auth0Config struct {
-	Domain        string
-	Audience      string
-	Issuer        string
-	JWKSEndpoint  string
+type BetterAuthConfig struct {
+	BaseURL     string
+	Audience    string
+	Issuer      string
+	JWKSEndpoint string
+}
+
+type CORSConfig struct {
+	AllowedOrigins []string
+	AllowedMethods []string
+	AllowedHeaders []string
 }
 
 func Load() (*Config, error) {
@@ -42,10 +50,15 @@ func Load() (*Config, error) {
 		return nil, fmt.Errorf("invalid SERVER_PORT: %w", err)
 	}
 
-	auth0Domain := getEnv("AUTH0_DOMAIN", "")
-	if auth0Domain == "" {
-		return nil, fmt.Errorf("AUTH0_DOMAIN is required")
+	betterAuthURL := getEnv("BETTER_AUTH_URL", "http://localhost:3000")
+	if betterAuthURL == "" {
+		return nil, fmt.Errorf("BETTER_AUTH_URL is required")
 	}
+
+	// Configuração de CORS
+	corsOrigins := getEnv("CORS_ALLOWED_ORIGINS", "*")
+	corsMethods := getEnv("CORS_ALLOWED_METHODS", "GET,POST,PUT,DELETE,OPTIONS,PATCH")
+	corsHeaders := getEnv("CORS_ALLOWED_HEADERS", "Origin,Content-Type,Content-Length,Accept-Encoding,X-CSRF-Token,Authorization,X-Requested-With")
 
 	config := &Config{
 		Database: DatabaseConfig{
@@ -55,11 +68,16 @@ func Load() (*Config, error) {
 			Port: port,
 			Host: getEnv("SERVER_HOST", "localhost"),
 		},
-		Auth0: Auth0Config{
-			Domain:       auth0Domain,
-			Audience:     getEnv("AUTH0_AUDIENCE", ""),
-			Issuer:       fmt.Sprintf("https://%s/", auth0Domain),
-			JWKSEndpoint: fmt.Sprintf("https://%s/.well-known/jwks.json", auth0Domain),
+		BetterAuth: BetterAuthConfig{
+			BaseURL:      betterAuthURL,
+			Audience:     betterAuthURL,
+			Issuer:       betterAuthURL,
+			JWKSEndpoint: fmt.Sprintf("%s/api/auth/jwks", betterAuthURL),
+		},
+		CORS: CORSConfig{
+			AllowedOrigins: strings.Split(corsOrigins, ","),
+			AllowedMethods: strings.Split(corsMethods, ","),
+			AllowedHeaders: strings.Split(corsHeaders, ","),
 		},
 		Env: getEnv("ENV", "development"),
 	}

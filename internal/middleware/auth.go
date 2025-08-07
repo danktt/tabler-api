@@ -10,12 +10,12 @@ import (
 	"tabler-api/config"
 
 	"github.com/gin-gonic/gin"
-	"github.com/lestrrat-go/jwx/v2/jwk"
-	"github.com/lestrrat-go/jwx/v2/jwt"
+	"github.com/lestrrat-go/jwx/v3/jwk"
+	"github.com/lestrrat-go/jwx/v3/jwt"
 )
 
-// Auth0Claims representa as claims padrão do Auth0
-type Auth0Claims struct {
+// BetterAuthClaims representa as claims do Better Auth
+type BetterAuthClaims struct {
 	Sub       string `json:"sub"`
 	Iss       string `json:"iss"`
 	Aud       string `json:"aud"`
@@ -23,21 +23,22 @@ type Auth0Claims struct {
 	Iat       int64  `json:"iat"`
 	Email     string `json:"email,omitempty"`
 	Name      string `json:"name,omitempty"`
-	Nickname  string `json:"nickname,omitempty"`
-	Picture   string `json:"picture,omitempty"`
-	UpdatedAt string `json:"updated_at,omitempty"`
+	EmailVerified bool `json:"emailVerified,omitempty"`
+	Image     string `json:"image,omitempty"`
+	CreatedAt string `json:"createdAt,omitempty"`
+	UpdatedAt string `json:"updatedAt,omitempty"`
 }
 
-// Auth0Middleware é o middleware principal para autenticação JWT
-type Auth0Middleware struct {
-	config     *config.Auth0Config
+// BetterAuthMiddleware é o middleware principal para autenticação JWT com Better Auth
+type BetterAuthMiddleware struct {
+	config     *config.BetterAuthConfig
 	keySet     jwk.Set
 	lastUpdate time.Time
 }
 
-// NewAuth0Middleware cria uma nova instância do middleware Auth0
-func NewAuth0Middleware(cfg *config.Auth0Config) (*Auth0Middleware, error) {
-	middleware := &Auth0Middleware{
+// NewBetterAuthMiddleware cria uma nova instância do middleware Better Auth
+func NewBetterAuthMiddleware(cfg *config.BetterAuthConfig) (*BetterAuthMiddleware, error) {
+	middleware := &BetterAuthMiddleware{
 		config:     cfg,
 		lastUpdate: time.Time{}, // Zero time to force initial load
 	}
@@ -50,14 +51,15 @@ func NewAuth0Middleware(cfg *config.Auth0Config) (*Auth0Middleware, error) {
 	return middleware, nil
 }
 
-// refreshJWKS atualiza o conjunto de chaves JWK do Auth0
-func (m *Auth0Middleware) refreshJWKS() error {
+// refreshJWKS atualiza o conjunto de chaves JWK do Better Auth
+func (m *BetterAuthMiddleware) refreshJWKS() error {
 	// Verifica se precisa atualizar (a cada 24 horas)
 	if time.Since(m.lastUpdate) < 24*time.Hour && m.keySet != nil {
 		return nil
 	}
 
-	// Carrega as chaves JWK do endpoint do Auth0
+	// Carrega as chaves JWK do endpoint do Better Auth
+	fmt.Printf("Fetching JWKS from: %s\n", m.config.JWKSEndpoint)
 	keySet, err := jwk.Fetch(context.Background(), m.config.JWKSEndpoint)
 	if err != nil {
 		return fmt.Errorf("failed to fetch JWKS: %w", err)
@@ -65,11 +67,12 @@ func (m *Auth0Middleware) refreshJWKS() error {
 
 	m.keySet = keySet
 	m.lastUpdate = time.Now()
+	fmt.Printf("JWKS loaded successfully with %d keys\n", keySet.Len())
 	return nil
 }
 
 // Authenticate é o middleware Gin para autenticação
-func (m *Auth0Middleware) Authenticate() gin.HandlerFunc {
+func (m *BetterAuthMiddleware) Authenticate() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// Extrai o token do header Authorization
 		tokenString, err := extractTokenFromHeader(c)
@@ -98,6 +101,11 @@ func (m *Auth0Middleware) Authenticate() gin.HandlerFunc {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"error":   "Unauthorized",
 				"message": err.Error(),
+				"debug": gin.H{
+					"issuer":   m.config.Issuer,
+					"audience": m.config.Audience,
+					"jwks_url": m.config.JWKSEndpoint,
+				},
 			})
 			c.Abort()
 			return
@@ -130,8 +138,8 @@ func extractTokenFromHeader(c *gin.Context) (string, error) {
 	return token, nil
 }
 
-// validateToken valida o token JWT usando as chaves JWK do Auth0
-func (m *Auth0Middleware) validateToken(tokenString string) (*Auth0Claims, error) {
+// validateToken valida o token JWT usando as chaves JWK do Better Auth
+func (m *BetterAuthMiddleware) validateToken(tokenString string) (*BetterAuthClaims, error) {
 	// Parse e valida o token
 	token, err := jwt.Parse(
 		[]byte(tokenString),
@@ -146,95 +154,117 @@ func (m *Auth0Middleware) validateToken(tokenString string) (*Auth0Claims, error
 	}
 
 	// Extrai as claims
-	var claims Auth0Claims
+	var claims BetterAuthClaims
 	
-	if sub, ok := token.Get("sub"); ok {
-		if subStr, ok := sub.(string); ok {
-			claims.Sub = subStr
-		} else {
-			return nil, fmt.Errorf("invalid token: sub claim is not a string")
-		}
-	} else {
+	var sub string
+	if err := token.Get("sub", &sub); err != nil {
 		return nil, fmt.Errorf("invalid token: missing sub claim")
 	}
+	claims.Sub = sub
 	
-	if iss, ok := token.Get("iss"); ok {
-		if issStr, ok := iss.(string); ok {
-			claims.Iss = issStr
-		} else {
-			return nil, fmt.Errorf("invalid token: iss claim is not a string")
-		}
-	} else {
+	var iss string
+	if err := token.Get("iss", &iss); err != nil {
 		return nil, fmt.Errorf("invalid token: missing iss claim")
 	}
+	claims.Iss = iss
 	
-	if aud, ok := token.Get("aud"); ok {
-		if audStr, ok := aud.(string); ok {
-			claims.Aud = audStr
-		} else {
-			return nil, fmt.Errorf("invalid token: aud claim is not a string")
-		}
-	} else {
+	// Handle audience claim - it can be either a string or string array
+	var audInterface interface{}
+	if err := token.Get("aud", &audInterface); err != nil {
 		return nil, fmt.Errorf("invalid token: missing aud claim")
 	}
 	
-	if exp, ok := token.Get("exp"); ok {
-		if expNum, ok := exp.(float64); ok {
-			claims.Exp = int64(expNum)
+	// Convert audience to string
+	switch v := audInterface.(type) {
+	case string:
+		claims.Aud = v
+	case []string:
+		if len(v) > 0 {
+			claims.Aud = v[0] // Use the first audience
 		} else {
-			return nil, fmt.Errorf("invalid token: exp claim is not a number")
+			return nil, fmt.Errorf("invalid token: empty aud claim")
 		}
-	} else {
+	default:
+		return nil, fmt.Errorf("invalid token: unexpected aud claim type")
+	}
+	
+	// Handle expiration claim
+	var expInterface interface{}
+	if err := token.Get("exp", &expInterface); err != nil {
 		return nil, fmt.Errorf("invalid token: missing exp claim")
 	}
 	
-	if iat, ok := token.Get("iat"); ok {
-		if iatNum, ok := iat.(float64); ok {
-			claims.Iat = int64(iatNum)
-		} else {
-			return nil, fmt.Errorf("invalid token: iat claim is not a number")
-		}
-	} else {
+	// Convert expiration to int64
+	switch v := expInterface.(type) {
+	case float64:
+		claims.Exp = int64(v)
+	case int64:
+		claims.Exp = v
+	case int:
+		claims.Exp = int64(v)
+	default:
+		return nil, fmt.Errorf("invalid token: unexpected exp claim type")
+	}
+	
+	// Handle issued at claim
+	var iatInterface interface{}
+	if err := token.Get("iat", &iatInterface); err != nil {
 		return nil, fmt.Errorf("invalid token: missing iat claim")
 	}
+	
+	// Convert issued at to int64
+	switch v := iatInterface.(type) {
+	case float64:
+		claims.Iat = int64(v)
+	case int64:
+		claims.Iat = v
+	case int:
+		claims.Iat = int64(v)
+	default:
+		return nil, fmt.Errorf("invalid token: unexpected iat claim type")
+	}
 
-	// Claims opcionais
-	if email, ok := token.Get("email"); ok {
-		if emailStr, ok := email.(string); ok {
-			claims.Email = emailStr
-		}
+	// Claims opcionais do Better Auth
+	var email string
+	if err := token.Get("email", &email); err == nil {
+		claims.Email = email
 	}
-	if name, ok := token.Get("name"); ok {
-		if nameStr, ok := name.(string); ok {
-			claims.Name = nameStr
-		}
+	
+	var name string
+	if err := token.Get("name", &name); err == nil {
+		claims.Name = name
 	}
-	if nickname, ok := token.Get("nickname"); ok {
-		if nicknameStr, ok := nickname.(string); ok {
-			claims.Nickname = nicknameStr
-		}
+	
+	var emailVerified bool
+	if err := token.Get("emailVerified", &emailVerified); err == nil {
+		claims.EmailVerified = emailVerified
 	}
-	if picture, ok := token.Get("picture"); ok {
-		if pictureStr, ok := picture.(string); ok {
-			claims.Picture = pictureStr
-		}
+	
+	var image string
+	if err := token.Get("image", &image); err == nil {
+		claims.Image = image
 	}
-	if updatedAt, ok := token.Get("updated_at"); ok {
-		if updatedAtStr, ok := updatedAt.(string); ok {
-			claims.UpdatedAt = updatedAtStr
-		}
+	
+	var createdAt string
+	if err := token.Get("createdAt", &createdAt); err == nil {
+		claims.CreatedAt = createdAt
+	}
+	
+	var updatedAt string
+	if err := token.Get("updatedAt", &updatedAt); err == nil {
+		claims.UpdatedAt = updatedAt
 	}
 
 	return &claims, nil
 }
 
 // GetUserFromContext extrai o usuário do contexto Gin
-func GetUserFromContext(c *gin.Context) (*Auth0Claims, bool) {
+func GetUserFromContext(c *gin.Context) (*BetterAuthClaims, bool) {
 	user, exists := c.Get("user")
 	if !exists {
 		return nil, false
 	}
 
-	claims, ok := user.(*Auth0Claims)
+	claims, ok := user.(*BetterAuthClaims)
 	return claims, ok
 } 

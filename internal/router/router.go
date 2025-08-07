@@ -13,10 +13,21 @@ import (
 func SetupRouter(userHandler *handler.UserHandler, cfg *config.Config) *gin.Engine {
 	router := gin.Default()
 
-	// Inicializa o middleware de autenticação Auth0
-	authMiddleware, err := middleware.NewAuth0Middleware(&cfg.Auth0)
-	if err != nil {
-		log.Fatalf("Failed to initialize Auth0 middleware: %v", err)
+	// Adiciona middleware de CORS
+	router.Use(middleware.CORSMiddleware(&cfg.CORS))
+
+	// Inicializa o middleware de autenticação Better Auth
+	var authMiddleware *middleware.BetterAuthMiddleware
+	var err error
+	
+	// Only initialize auth middleware if not in development mode
+	if cfg.Env != "development" {
+		authMiddleware, err = middleware.NewBetterAuthMiddleware(&cfg.BetterAuth)
+		if err != nil {
+			log.Fatalf("Failed to initialize Better Auth middleware: %v", err)
+		}
+	} else {
+		log.Println("Running in development mode - auth middleware disabled")
 	}
 
 	// Health check endpoint
@@ -27,11 +38,23 @@ func SetupRouter(userHandler *handler.UserHandler, cfg *config.Config) *gin.Engi
 		})
 	})
 
+	// Rota de teste CORS (sem autenticação)
+	router.GET("/api/v1/test-cors", func(c *gin.Context) {
+		c.JSON(200, gin.H{
+			"message": "CORS is working correctly!",
+			"origin":  c.GetHeader("Origin"),
+			"method":  c.Request.Method,
+		})
+	})
+
 	// API v1 routes
 	v1 := router.Group("/api/v1")
 	{
-		// User routes (não protegidas)
+		// User routes (protegidas por autenticação)
 		users := v1.Group("/users")
+		if authMiddleware != nil {
+			users.Use(authMiddleware.Authenticate())
+		}
 		{
 			users.POST("/", userHandler.CreateUser)
 			users.GET("/", userHandler.GetAllUsers)
@@ -42,7 +65,9 @@ func SetupRouter(userHandler *handler.UserHandler, cfg *config.Config) *gin.Engi
 
 		// Rotas protegidas que requerem autenticação
 		protected := v1.Group("/")
-		protected.Use(authMiddleware.Authenticate())
+		if authMiddleware != nil {
+			protected.Use(authMiddleware.Authenticate())
+		}
 		{
 			// Profile route - retorna dados do usuário autenticado
 			profileHandler := handler.NewProfileHandler()
