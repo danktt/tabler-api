@@ -1,3 +1,16 @@
 api
-authly-api
+tabler-api
 tmp/
+.env
+
+tmp/
+tmp/**
+vendor/
+
+.DS_Store
+/cmd/
+
+/internal/router/router.go
+
+
+dev.env
