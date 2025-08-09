@@ -13,4 +13,6 @@ vendor/
 /internal/router/router.go
 
 
-dev.env
+dev.env.env
+.env.*
+*.env
